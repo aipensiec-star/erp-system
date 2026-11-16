@@ -3,6 +3,8 @@ name: Sestavit instalační ZIP
 on:
   push:
     branches: [main]
+    paths:
+      - RELEASE
   workflow_dispatch:
 
 permissions:
