@@ -1,0 +1,55 @@
+name: Sestavit instalační ZIP
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup PHP
+        uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.3'
+          extensions: mbstring, xml, curl, zip, gd, pdo_mysql, sqlite3
+
+      - name: Vytvoření Laravel projektu
+        run: composer create-project laravel/laravel skeleton --no-interaction --no-progress --prefer-dist
+
+      - name: Překrytí vlastními soubory
+        run: |
+          tar -C . --exclude=./.git --exclude=./.github --exclude=./build --exclude=./skeleton --exclude=./composer.json -cf - . | tar -C skeleton -xf -
+
+      - name: Příprava .env
+        working-directory: skeleton
+        run: |
+          cp .env.example .env
+          php artisan key:generate --force
+
+      - name: Sestavení ZIP
+        working-directory: skeleton
+        run: |
+          mkdir -p ../build
+          zip -qr ../build/erp-system-instalace.zip . -x "node_modules/*" "tests/*"
+
+      - name: Vytvoření release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: v0.1.${{ github.run_number }}
+          name: Instalační balíček v0.1.${{ github.run_number }}
+          body: |
+            Instalační ZIP obsahuje celý systém včetně závislostí (vendor/).
+
+            ## Instalace
+            1. Stáhněte `erp-system-instalace.zip`.
+            2. Rozbalte a nahrajte obsah přes FTP do kořene domény.
+            3. Nastavte `storage/` a `bootstrap/cache/` jako zapisovatelné (775).
+            4. Otevřete doménu v prohlížeči a projděte instalačním průvodcem.
+          files: build/erp-system-instalace.zip
